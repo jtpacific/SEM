@@ -1,1 +1,2 @@
-# Python code for Structured Event Memory (SEM) model
+# SEM
+Python code for Structured Event Memory (SEM) model
