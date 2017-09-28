@@ -83,7 +83,7 @@ def sem_segment(states, sem, opts):
         p = np.log(prior[active]) + likelihood[active]
         post = np.exp(p-logsumexp(p))        
         posteriors[active] = post
-        chosenevent = np.where(posteriors == min(posteriors))[0][0]
+        chosenevent = np.where(posteriors == max(posteriors))[0][0]
 
         # on event boundaries train the event RNN using the entire observed sequence
         if chosenevent != sem['last_event']:
