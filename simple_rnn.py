@@ -1,12 +1,17 @@
 import keras
 from keras.models import Sequential
-from keras.layers import SimpleRNN
+from keras.layers import SimpleRNN, LSTM
 import numpy as np
+from keras.layers import Dense, Dropout
 
 # initialize simple rnn
 def init(batches, seq_length, vector_length):
     model = Sequential()
-    model.add(SimpleRNN(units=vector_length, batch_input_shape=(batches, seq_length, vector_length), return_sequences=True))
+    
+    model.add(SimpleRNN(units=20, input_shape=(seq_length, vector_length), return_sequences=True))
+    model.add(SimpleRNN(units=20, return_sequences=True))
+    model.add(SimpleRNN(units=vector_length, activation='linear', return_sequences=True))
+
     model.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.SGD(lr=0.01, momentum=0.9, nesterov=True))
     return model
 

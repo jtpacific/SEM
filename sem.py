@@ -2,7 +2,7 @@ import copy
 import numpy as np
 import simple_rnn
 
-def lognormal_pdf(x, mu, sigma):
+def log_normal_likelihood(x, mu, sigma):
     return np.subtract(-0.5 *((np.subtract(x, mu))/sigma)**2, np.log((np.sqrt(2 * np.pi) * sigma)))
 
 def logsumexp(x):
@@ -28,7 +28,7 @@ def sem_init(opts):
 
     return sem
 
-def sem_options(f, d, max_events = 20, lambd = 10.0, alpha = 0.1, beta = 0.2, eta = 0.01):
+def sem_options(f, d, max_events = 20, lambd = 10.0, alpha = 0.1, beta = 1.0, eta = 0.01):
     opts = {}
 
     opts['f'] = f
@@ -53,6 +53,7 @@ def sem_segment(states, sem, opts):
     sem['current_event_scenes'].append(states[0])
     sem['last_event'] = 0
     sem['event_counts'][0] = 1
+    all_events.append(0)
 
     n = len(states)
     for time in range(1, n):
@@ -66,7 +67,7 @@ def sem_segment(states, sem, opts):
         if sem['last_event'] != -1:
             prior[sem['last_event']] += opts['lambd']
 
-        predictions = np.zeros(k)
+        predictions = [[] for i in range(k)]
         likelihood = np.zeros(k)
         active = np.nonzero(prior)[0]
         for i in active:   
@@ -76,12 +77,12 @@ def sem_segment(states, sem, opts):
             # feed only last scene and current scene to RNN for inactive events to predict likelihood of event break
             else:
                 predictions[i] = simple_rnn.predict([sem['current_event_scenes'][-1]], sem['theta'][i])
-            likelihood[i] = sum(lognormal_pdf(states[time], predictions[i], opts['beta']))
+            likelihood[i] = sum(log_normal_likelihood(states[time], predictions[i], opts['beta']))
 
         # construct posterior from prior and likelihood to choose event at current time
         posteriors = np.zeros(k)
         p = np.log(prior[active]) + likelihood[active]
-        post = np.exp(p-logsumexp(p))        
+        post = np.exp(p-logsumexp(p))    
         posteriors[active] = post
         chosenevent = np.where(posteriors == max(posteriors))[0][0]
 
@@ -93,6 +94,7 @@ def sem_segment(states, sem, opts):
         else: 
             sem['current_event_scenes'].append(states[time])
 
+        # update scene prediction and event prediction lists
         all_predictions.append(predictions[sem['last_event']])
         all_events.append(chosenevent)
         sem['last_event'] = chosenevent
