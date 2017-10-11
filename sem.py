@@ -1,6 +1,7 @@
-import copy
 import numpy as np
-import simple_rnn
+import copy
+
+from event_schemas import LinearMLP, BasicRNN, LinearRNN
 
 def log_normal_likelihood(x, mu, sigma):
     return np.subtract(-0.5 *((np.subtract(x, mu))/sigma)**2, np.log((np.sqrt(2 * np.pi) * sigma)))
@@ -24,11 +25,10 @@ def sem_init(opts):
     # initialize list of RNN structures for each event
     sem['theta'] = []
     for i in range(opts['max_events']):
-        sem['theta'].append(simple_rnn.init(1, None, opts['d']))
-
+        sem['theta'].append(opts['transition'](opts['d']))
     return sem
 
-def sem_options(f, d, max_events = 20, lambd = 10.0, alpha = 0.1, beta = 1.0, eta = 0.01):
+def sem_options(f, d, max_events = 20, lambd = 10.0, alpha = 0.1, beta = 1.0, eta = 0.01, model = LinearMLP):
     opts = {}
 
     opts['f'] = f
@@ -38,6 +38,7 @@ def sem_options(f, d, max_events = 20, lambd = 10.0, alpha = 0.1, beta = 1.0, et
     opts['alpha'] = alpha
     opts['beta'] = beta
     opts['eta'] = eta
+    opts['transition'] = model
     
     return opts
     
@@ -71,12 +72,12 @@ def sem_segment(states, sem, opts):
         likelihood = np.zeros(k)
         active = np.nonzero(prior)[0]
         for i in active:   
-            # feed entire event sequence to RNN for current event to predict on the sequence
-            if i == sem['last_event']:     
-                predictions[i] = simple_rnn.predict(sem['current_event_scenes'], sem['theta'][i])
-            # feed only last scene and current scene to RNN for inactive events to predict likelihood of event break
+            if i == sem['last_event'] and sem['theta'][i].is_recurrent():     
+                # feed entire event sequence to RNN for current event to predict on the sequence
+                predictions[i] = sem['theta'][i].predict(sem['current_event_scenes'])
             else:
-                predictions[i] = simple_rnn.predict([sem['current_event_scenes'][-1]], sem['theta'][i])
+                # feed only last scene and current scene to RNN for inactive events to predict likelihood of event break
+                predictions[i] = sem['theta'][i].predict([sem['current_event_scenes'][-1]])
             likelihood[i] = sum(log_normal_likelihood(states[time], predictions[i], opts['beta']))
 
         # construct posterior from prior and likelihood to choose event at current time
@@ -84,16 +85,20 @@ def sem_segment(states, sem, opts):
         p = np.log(prior[active]) + likelihood[active]
         post = np.exp(p-logsumexp(p))    
         posteriors[active] = post
+        posteriors[np.isnan(posteriors)] = 0
+
         chosenevent = np.where(posteriors == max(posteriors))[0][0]
 
-        # on event boundaries train the event RNN using the entire observed sequence
         if chosenevent != sem['last_event']:
-            if time != 1:
-                simple_rnn.train(sem['current_event_scenes'], sem['theta'][sem['last_event']])
-            sem['current_event_scenes'] = [states[time - 1], states[time]] 
-        else: 
+            if sem['theta'][sem['last_event']].is_recurrent():
+                # on event boundaries train the event RNN using the entire observed sequence
+                sem['theta'][sem['last_event']].train_recurrent(sem['current_event_scenes']) 
+            sem['current_event_scenes'] = [states[time - 1], states[time]]
+        else:
+            if not sem['theta'][sem['last_event']].is_recurrent():
+                sem['theta'][sem['last_event']].update([states[time - 1]], [states[time]]) 
             sem['current_event_scenes'].append(states[time])
-
+        
         # update scene prediction and event prediction lists
         all_predictions.append(predictions[sem['last_event']])
         all_events.append(chosenevent)
@@ -101,5 +106,6 @@ def sem_segment(states, sem, opts):
         sem['event_counts'][chosenevent] += 1
 
     # train current RNN one more time with leftover scenes
-    simple_rnn.train(sem['current_event_scenes'], sem['theta'][sem['last_event']])
+    if sem['theta'][sem['last_event']].is_recurrent():
+        sem['theta'][sem['last_event']].train_recurrent(sem['current_event_scenes'])
     return all_events, all_predictions
