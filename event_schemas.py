@@ -81,3 +81,26 @@ class BasicRNN(EventModel):
         if ret_all:
             return np.asarray(predictions[0])
         return np.asarray(predictions[0][-1])
+
+class BoundedRNN(EventModel):
+
+    def __init__(self, D):
+        model = Sequential()
+        model.add(SimpleRNN(units=10, input_shape=(None, D), return_sequences=True))
+        model.add(SimpleRNN(units=D, activation='tanh', return_sequences=True))
+        model.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.SGD(lr=0.01, momentum=0.9, nesterov=True))
+        self.model = model
+        self.isRecurrent = True
+        
+    def train_recurrent(self, scenes):
+        if len(scenes) < 2:
+            return
+        trainX = scenes[0:len(scenes) - 1]
+        trainY = scenes[1:len(scenes)]
+        self.model.fit(np.asarray([trainX]), np.asarray([trainY]), epochs=1, batch_size=1, verbose=0)
+        
+    def predict(self, X, ret_all = False):
+        predictions = self.model.predict(np.asarray([X]))
+        if ret_all:
+            return np.asarray(predictions[0])
+        return np.asarray(predictions[0][-1])
