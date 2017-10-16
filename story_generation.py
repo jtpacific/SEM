@@ -2,14 +2,9 @@ from hrr import encode, decode, embed_2d, normalize
 import numpy as np
 import random
 
-
-
-
-###### MAKE THE DAMN THING AN OBJECT
+ACCEPT_THRESHOLD = 1.0
 
 # ----- fight event schema -----
-
-ACCEPT_THRESHOLD = 1.0
 
 def assign_variable_properties(constants, variable, property_string):
 	if property_string in variable.keys() and variable[property_string]:
@@ -263,7 +258,3 @@ def generate_evaluation_events(actors, constants, num_events):
 	    training.append(list(map(lambda x: normalize(x), event)))
 	    semantic_vectors.append(semantic)
 	return training, semantic_vectors
-
-
-
-
