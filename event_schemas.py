@@ -60,10 +60,10 @@ class LinearRNN(EventModel):
 
 class BasicRNN(EventModel):
 
-    def __init__(self, D):
+    def __init__(self, D, hidden):
         model = Sequential()
-        model.add(SimpleRNN(units=10, input_shape=(None, D), return_sequences=True))
-        model.add(SimpleRNN(units=10, return_sequences=True))
+        model.add(SimpleRNN(units=hidden, input_shape=(None, D), return_sequences=True))
+        model.add(SimpleRNN(units=hidden, return_sequences=True))
         model.add(SimpleRNN(units=D, activation='linear', return_sequences=True))
         model.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.SGD(lr=0.01, momentum=0.9, nesterov=True))
         self.model = model

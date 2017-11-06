@@ -2,6 +2,7 @@ from hrr import encode, decode, embed_2d, normalize
 import numpy as np
 import random
 
+# lower threshold to introduce noise in story construction - currently constant across all transitions
 ACCEPT_THRESHOLD = 1.0
 
 # ----- fight event schema -----
@@ -169,6 +170,16 @@ def initialize_constants(constant_strings, dim):
 		constants[i] = embed_2d(dim, None)
 	return constants
 
+def initialize_placeholders(constant_strings, dim):
+	constants = {}
+	for i in range(len(constant_strings)):
+		constants[constant_strings[i]] = np.zeros(dim)
+		if i < dim:
+			constants[constant_strings[i]][i] = 1
+	# change null property back to random
+	constants['null_property'] = embed_2d(dim, None)
+	return constants
+
 def initialize_actors(num, dim):
 	actors = []
 	for i in range(num):
@@ -201,7 +212,9 @@ def generate_stories(train_num, test_num, dim):
 	relations_list_train = []
 	relations_list_test = []
 
+	# distinction between variables and constants is that variables have properties that cause branches in the story structure
 	variables = {}
+
 	# generate events
 	generators = [generate_fight, generate_mall]
 	for i in range(train_num):
@@ -234,7 +247,7 @@ def initialize_vectors(dim):
 	nouns = ['coffeeshop', 'coffee', 'line', 'store', 'shirt', 'mall']
 	verbs = ['enter', 'obey', 'cut', 'buy', 'confront', 'hit', 'apologize', 'leave', 'greet', 'try']
 	constants = {}
-	constants['placeholders'] = initialize_constants(placeholders, dim)
+	constants['placeholders'] = initialize_placeholders(placeholders, dim)#initialize_constants(placeholders, dim)
 	constants['properties'] = initialize_constants(properties, dim)
 	constants['nouns'] = initialize_constants(nouns, dim)
 	constants['verbs'] = initialize_constants(verbs, dim)
