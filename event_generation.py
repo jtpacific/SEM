@@ -3,10 +3,8 @@ import numpy as np
 import random
 # import event generators
 from coffeeshop_generator import enter_coffeeshop
-from mall_generator import enter_mall
 
-EVENT_GENERATORS = [enter_coffeeshop, enter_mall]
-ENCODING_SCHEMES = ['causal_attention', 'trait_addition', 'trait_boolean_binding']
+EVENT_GENERATORS = [enter_coffeeshop]
 
 # generate events with ground truth fillers using a single generator
 def generate_evaluation_events(context, encoding, generator = EVENT_GENERATORS[0], num_events = 1, testing = False):

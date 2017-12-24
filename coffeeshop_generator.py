@@ -1,17 +1,8 @@
-from encoding_schemes import encode_causal_attention, encode_trait_addition, encode_trait_boolean_binding
+from encoding_schemes import encode_scene
 import random
 
 # lower threshold to introduce noise in story construction - currently constant across all transitions
 DECISION_THRESHOLD = 1.0
-
-def encode_scene(context, encoding, subj, action, obj, subject_property = None, action_property = None, object_property = None):
-	if encoding == 'causal_attention':
-		scene, generating = encode_causal_attention(subj, action, obj, context, subject_property = subject_property, action_property = action_property, object_property = object_property)
-	elif encoding == 'trait_addition':
-		scene, generating = encode_trait_addition(subj, action, obj, context)
-	elif encoding == 'trait_boolean_binding':
-		scene, generating = encode_trait_boolean_binding(subj, action, obj, context)
-	return scene, generating
 
 def transition(decision, options):
 	if decision:
