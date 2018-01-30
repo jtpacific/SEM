@@ -1,7 +1,7 @@
 import numpy as np
 import copy
 
-from event_schemas import LinearMLP, BasicRNN, LinearRNN
+from event_schemas import BasicRNN
 
 def log_normal_likelihood(x, mu, sigma):
     return np.subtract(-0.5 *((np.subtract(x, mu))/sigma)**2, np.log((np.sqrt(2 * np.pi) * sigma)))
@@ -17,7 +17,7 @@ def logsumexp(x):
 def sem_init(opts):
     sem = {}
 
-    # initialize event 
+    # initialize event info
     sem['event_counts'] = np.zeros(opts['max_events'])
     sem['last_event'] = -1
     sem['current_event_scenes'] = []
@@ -28,7 +28,7 @@ def sem_init(opts):
         sem['theta'].append(opts['transition'](opts['d']))
     return sem
 
-def sem_options(f, d, max_events = 20, lambd = 10.0, alpha = 0.1, beta = 1.0, eta = 0.01, model = LinearMLP):
+def sem_options(f, d, max_events = 20, lambd = 10.0, alpha = 0.1, beta = 1.0, eta = 0.01, model = BasicRNN):
     opts = {}
 
     opts['f'] = f

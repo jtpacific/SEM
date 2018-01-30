@@ -3,9 +3,17 @@ import numpy as np
 import random
 
 def vectorize_roles(role_strings, dim):
+    '''
     roles = {}
     for i in range(len(role_strings)):
         roles[role_strings[i]] = embed_2d(dim, None)
+    return roles
+    '''
+    roles = {}
+    ind = np.random.choice(dim, len(role_strings), replace=False)
+    for i in range(len(role_strings)):
+        roles[role_strings[i]] = np.zeros(dim)
+        roles[role_strings[i]][ind[i]] = 1
     return roles
 
 # vectorize list of strings
@@ -42,7 +50,7 @@ def vectorize_actors(num, dim, properties = []):
         actors.append(a)
     return actors
 
-class EventContext(object):
+class SemContext(object):
     def __init__(self, dim, noun_strings, verb_strings, property_strings, role_strings = ['subject', 'action', 'object', 'noun', 'verb', 'property'], constant_strings = ['TRUE', 'FALSE', 'NULL'], num_train_actors = 10, num_test_actors = 10):
         self.roles = dim
         # initialize vectors
@@ -54,3 +62,7 @@ class EventContext(object):
         self.test_actors = vectorize_actors(num_test_actors, dim, self.properties)
         self.nouns = vectorize_with_properties(noun_strings, dim)
         self.verbs = vectorize_with_properties(verb_strings, dim)
+        # default no property distributions
+        self.distribution_params = None
+    def set_distribution_params(self, params):
+        self.distribution_params = params
