@@ -23,7 +23,6 @@ def encode_scene(context, encoding, chosen_properties, subj, action, obj, subjec
 	return scene, generating
 
 def match(vector, pool):
-    #dists = list(map(lambda x: np.linalg.norm(np.asarray(vector) - np.asarray(x)), pool))
     dists = list(map(lambda x: spatial.distance.cosine(np.asarray(vector), np.asarray(x)), pool))
     index = dists.index(min(dists))
     return pool[index]
@@ -40,32 +39,47 @@ def decode_prediction(vector, context):
 
 def decode_prediction_binding(vector, context):
 	subj = decode(vector, context.roles['subject'])
-	subj_noun = decode(subj, context.roles['noun'])
+	subj_noun = decode(subj, context.roles['agent_id'])
 	action = decode(vector, context.roles['action'])
-	action_verb = decode(action, context.roles['verb'])
+	action_verb = decode(action, context.roles['action_id'])
 	obj = decode(vector, context.roles['object'])
-	obj_noun = decode(obj, context.roles['noun'])
+	obj_noun = decode(obj, context.roles['patient_id'])
 	predictions = {}
 	predictions['subject'] = subj_noun
 	predictions['action'] = action_verb
 	predictions['object'] = obj_noun
 	return predictions
 
+def add_properties(actor, context):
+	actor_vector = np.zeros(context.dim)
+	actor_vector += actor['identity']
+	for p in actor['properties'].keys():
+		actor_vector += context.properties[p][int(actor['properties'][p])]
+	return actor_vector
+
 def filler_errors(encoding, vector, generating_fillers, context, testing = False):
-	if 'binding' in encoding:
-		predictions = decode_prediction_binding(vector, context)
+	if type(vector) == dict:
+		predictions = vector
 	else:
-		predictions = decode_prediction(vector, context)
+		if 'binding' in encoding:
+			predictions = decode_prediction_binding(vector, context)
+		else:
+			predictions = decode_prediction(vector, context)
+
 	if testing:
-		noun_pool = list(map(lambda x:x['identity'], context.test_actors)) + list(map(lambda x:x['identity'], context.nouns.values()))
+		noun_pool = list(map(lambda x:add_properties(x, context), context.test_actors)) + list(map(lambda x:x['identity'], context.nouns.values()))
 	else:
 		noun_pool = list(map(lambda x:x['identity'], context.train_actors)) + list(map(lambda x:x['identity'], context.nouns.values()))
 	verb_pool = list(map(lambda x:x['identity'], context.verbs.values()))
 
-	subject_error = list(match(predictions['subject'], noun_pool)) == list(generating_fillers['subject']['identity'])
-	action_error = list(match(predictions['action'], verb_pool)) == list(generating_fillers['action']['identity'])
-	object_error = list(match(predictions['object'], noun_pool)) == list(generating_fillers['object']['identity'])
-	return [float(subject_error), float(action_error), float(object_error)]
+	subject_match_error = list(match(predictions['subject'], noun_pool)) == list(add_properties(generating_fillers['subject'], context)) #list(generating_fillers['subject']['identity'])
+	action_match_error = list(match(predictions['action'], verb_pool)) == list(generating_fillers['action']['identity'])
+	object_match_error = list(match(predictions['object'], noun_pool)) == list(add_properties(generating_fillers['object'], context))
+	subject_error = np.linalg.norm(normalize(predictions['subject']) - normalize(add_properties(generating_fillers['subject'], context)))
+	action_error = np.linalg.norm(normalize(predictions['action']) - normalize(generating_fillers['action']['identity']))
+	object_error = np.linalg.norm(normalize(predictions['object']) - normalize(add_properties(generating_fillers['object'], context)))
+
+	return [float(subject_match_error), float(action_match_error), float(object_match_error), float(subject_error), float(action_error), float(object_error)]
 
 #-----baseline-----
 
@@ -96,9 +110,12 @@ def encode_bayesian_property_addition(chosen_properties, subj, action, obj, cont
 	generating_fillers['subject'] = subj
 	generating_fillers['action'] = action
 	generating_fillers['object'] = obj
-	subject_vector = subj['identity']
-	action_vector = action['identity']
-	object_vector = obj['identity']
+	subject_vector = np.zeros(context.dim)
+	action_vector = np.zeros(context.dim)
+	object_vector = np.zeros(context.dim)
+	subject_vector += subj['identity']
+	action_vector +=  action['identity']
+	object_vector += obj['identity']
 
 	subject_props = {}
 	object_props = {}
@@ -134,9 +151,12 @@ def encode_selective_property_addition(subj, action, obj, context, subject_prope
 	generating_fillers['subject'] = subj
 	generating_fillers['action'] = action
 	generating_fillers['object'] = obj
-	subject_vector = subj['identity']
-	action_vector = action['identity']
-	object_vector = obj['identity']
+	subject_vector = np.zeros(context.dim)
+	action_vector = np.zeros(context.dim)
+	object_vector = np.zeros(context.dim)
+	subject_vector += subj['identity']
+	action_vector +=  action['identity']
+	object_vector += obj['identity']
 	if subject_property != None and subject_property in subj['properties'].keys():
 		subject_vector += context.properties[subject_property][int(subj['properties'][subject_property])]
 		generating_fillers['subject_property'] = subject_property
@@ -162,14 +182,66 @@ def encode_all_property_addition(subj, action, obj, context):
 	generating_fillers['subject'] = subj
 	generating_fillers['action'] = action
 	generating_fillers['object'] = obj
-	subject_vector = subj['identity']
-	action_vector = action['identity']
-	object_vector = obj['identity']
+	subject_vector = np.zeros(context.dim)
+	action_vector = np.zeros(context.dim)
+	object_vector = np.zeros(context.dim)
+	subject_vector += subj['identity']
+	action_vector +=  action['identity']
+	object_vector += obj['identity']
 	for p in subj['properties'].keys():
 		subject_vector += context.properties[p][int(subj['properties'][p])]
 	for p in action['properties'].keys():
 		action_vector += context.properties[p][int(action['properties'][p])]
 	for p in obj['properties'].keys():
 		object_vector += context.properties[p][int(obj['properties'][p])]
+	vector = normalize(encode(context.roles['subject'], subject_vector) + encode(context.roles['action'], action_vector) + encode(context.roles['object'], object_vector))
+	return vector, generating_fillers
+
+#-----selective property binding-----
+
+def encode_selective_property_binding(subj, action, obj, context, subject_property = None, action_property = None, object_property = None):
+	generating_fillers = {}
+	generating_fillers['subject'] = subj
+	generating_fillers['action'] = action
+	generating_fillers['object'] = obj
+	subject_vector = encode(context.roles['agent_id'], subj['identity'])
+	action_vector = encode(context.roles['action_id'], action['identity'])
+	object_vector = encode(context.roles['patient_id'], obj['identity'])
+	if subject_property:
+		boolean = bool_string(subj['properties'][subject_property])
+		subject_vector += encode(context.properties[subject_property][1], context.constants[boolean])
+	if action_property:
+		boolean = bool_string(action['properties'][action_property])
+		action_vector += encode(context.properties[action_property][1], context.constants[boolean])
+	if object_property:
+		boolean = bool_string(obj['properties'][object_property])
+		object_vector += encode(context.properties[object_property][1], context.constants[boolean])
+	vector = normalize(encode(context.roles['subject'], subject_vector) + encode(context.roles['action'], action_vector) + encode(context.roles['object'], object_vector))
+	return vector, generating_fillers
+
+#-----all property binding-----
+
+def bool_string(boolean):
+	if boolean:
+		return 'TRUE'
+	return 'FALSE'
+
+def encode_all_property_binding(subj, action, obj, context):
+	generating_fillers = {}
+	generating_fillers['subject'] = subj
+	generating_fillers['action'] = action
+	generating_fillers['object'] = obj
+	subject_vector = encode(context.roles['agent_id'], subj['identity'])
+	action_vector = encode(context.roles['action_id'], action['identity'])
+	object_vector = encode(context.roles['patient_id'], obj['identity'])
+	for p in subj['properties'].keys():
+		boolean = bool_string(subj['properties'][p])
+		subject_vector += encode(context.properties[p][1], context.constants[boolean])
+	for p in action['properties'].keys():
+		boolean = bool_string(action['properties'][p])
+		action_vector += encode(context.properties[p][1], context.constants[boolean])
+	for p in obj['properties'].keys():
+		boolean = bool_string(obj['properties'][p])
+		object_vector += encode(context.properties[p][1], context.constants[boolean])
 	vector = normalize(encode(context.roles['subject'], subject_vector) + encode(context.roles['action'], action_vector) + encode(context.roles['object'], object_vector))
 	return vector, generating_fillers
