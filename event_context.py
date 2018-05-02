@@ -51,8 +51,7 @@ def vectorize_actors(num, dim, properties = []):
     return actors
 
 class SemContext(object):
-    def __init__(self, dim, noun_strings, verb_strings, property_strings, role_strings = ['subject', 'action', 'object', 'noun', 'verb', 'property'], constant_strings = ['TRUE', 'FALSE', 'NULL'], num_train_actors = 10, num_test_actors = 10):
-        self.roles = dim
+    def __init__(self, dim, noun_strings, verb_strings, property_strings, role_strings = ['subject', 'action', 'object', 'agent_id', 'action_id', 'property', 'patient_id'], constant_strings = ['TRUE', 'FALSE', 'NULL'], num_train_actors = 10, num_test_actors = 10):
         # initialize vectors
         self.roles = vectorize_roles(role_strings, dim)
         self.properties = vectorize(property_strings, dim)
